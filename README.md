@@ -1,4 +1,4 @@
-# Тест эксплойта Fragnesia (LPE via espintcp page cache replace)
+# Тест эксплойта Fragnesia на ASTRA LINUX 1.7.6 (LPE via espintcp page cache replace)
 
 ## Что проверялось
 Попытка локального повышения привилегий с пользователя `ksb` (uid=1000) до `root` (uid=0) через уязвимость в ядре (подмена страниц кэша для `/usr/bin/su`).
